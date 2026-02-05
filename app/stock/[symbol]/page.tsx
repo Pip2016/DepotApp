@@ -7,6 +7,7 @@ import { StockHeader } from '@/components/stock/StockHeader';
 import { StockChart } from '@/components/stock/StockChart';
 import { FundamentalData } from '@/components/stock/FundamentalData';
 import { StockNews } from '@/components/stock/StockNews';
+import { AddToWatchlistButton } from '@/components/watchlist/AddToWatchlistButton';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -32,7 +33,10 @@ export default function StockDetailPage() {
       </Link>
 
       {/* Stock Header */}
-      <StockHeader quote={quote} isLoading={isLoading} />
+      <div className="flex items-start justify-between gap-4">
+        <StockHeader quote={quote} isLoading={isLoading} />
+        {symbol && <AddToWatchlistButton symbol={symbol} />}
+      </div>
 
       {/* Chart */}
       <StockChart

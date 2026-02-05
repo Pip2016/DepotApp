@@ -9,6 +9,7 @@ import { AllocationChart } from '@/components/portfolio/AllocationChart';
 import { PerformanceChart } from '@/components/portfolio/PerformanceChart';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { AddPositionDialog } from '@/components/portfolio/AddPositionDialog';
+import { WatchlistCard } from '@/components/watchlist/WatchlistCard';
 import { Plus } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -75,10 +76,15 @@ export default function DashboardPage() {
       {/* Summary Cards */}
       <PortfolioSummary positions={portfolio.positions} quotes={quotes} />
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <PerformanceChart data={performanceData} />
-        <AllocationChart positions={portfolio.positions} quotes={quotes} />
+      {/* Charts and Watchlist */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <PerformanceChart data={performanceData} />
+          <AllocationChart positions={portfolio.positions} quotes={quotes} />
+        </div>
+        <div>
+          <WatchlistCard />
+        </div>
       </div>
 
       {/* Position List */}
