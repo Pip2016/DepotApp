@@ -3,53 +3,43 @@
 import { useState, useCallback } from 'react';
 import { CsvUploader } from '@/components/import/CsvUploader';
 import { CsvPreview } from '@/components/import/CsvPreview';
-import { mapParsedToPositions } from '@/components/import/ImportMapping';
 import { usePortfolio } from '@/hooks/usePortfolio';
-import { isComdirectFormat, parseComdirectCsv } from '@/lib/csv/comdirect-parser';
-import { isPostbankFormat, parsePostbankCsv } from '@/lib/csv/postbank-parser';
-import { ParsedPosition, BrokerFormat, CsvParseResult } from '@/lib/csv/types';
-import { CheckCircle2, Upload } from 'lucide-react';
+import { parseGenericCsv } from '@/lib/csv/generic-parser';
+import { ParsedPosition, CsvParseResult, ColumnMapping } from '@/lib/csv/types';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function ImportPage() {
   const { importPositions } = usePortfolio();
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [importComplete, setImportComplete] = useState(false);
+  const [importedCount, setImportedCount] = useState(0);
 
-  const handleFileLoaded = useCallback((content: string, filename: string) => {
-    const lines = content.split('\n');
-    const headerLine = lines[0] || '';
-
-    let format: BrokerFormat = 'unknown';
-    let positions: ParsedPosition[] = [];
-    const errors: string[] = [];
-
-    if (isComdirectFormat(headerLine)) {
-      format = 'comdirect';
-      positions = parseComdirectCsv(content);
-    } else if (isPostbankFormat(headerLine)) {
-      format = 'postbank';
-      positions = parsePostbankCsv(content);
-    } else {
-      errors.push(
-        'Das CSV-Format konnte nicht automatisch erkannt werden. Bitte stelle sicher, dass es sich um einen Export von Comdirect oder Postbank handelt.'
-      );
-    }
-
-    if (positions.length === 0 && format !== 'unknown') {
-      errors.push('Keine gültigen Positionen in der Datei gefunden.');
-    }
-
-    setParseResult({ format, positions, errors });
+  const handleFileLoaded = useCallback((content: string, _filename: string) => {
+    const result = parseGenericCsv(content);
+    setParseResult(result);
     setImportComplete(false);
   }, []);
 
-  const handleConfirm = useCallback(() => {
-    if (!parseResult || parseResult.positions.length === 0) return;
+  const handleConfirm = useCallback((positions: ParsedPosition[]) => {
+    if (positions.length === 0) return;
 
-    const mapped = mapParsedToPositions(parseResult.positions);
+    // Map parsed positions to portfolio positions
+    const mapped = positions.map((p) => ({
+      symbol: p.wkn || p.isin || p.name.substring(0, 10).toUpperCase(),
+      isin: p.isin,
+      wkn: p.wkn,
+      name: p.name,
+      quantity: p.quantity,
+      buyPrice: p.buyPrice ?? p.buyValue ? (p.buyValue! / p.quantity) : 0,
+      buyDate: new Date().toISOString().split('T')[0],
+      currency: (p.currency === 'EUR' || p.currency === 'USD' ? p.currency : 'EUR') as 'EUR' | 'USD',
+      currentPrice: p.currentPrice,
+    }));
+
     importPositions(mapped);
+    setImportedCount(positions.length);
     setImportComplete(true);
-  }, [parseResult, importPositions]);
+  }, [importPositions]);
 
   const handleCancel = useCallback(() => {
     setParseResult(null);
@@ -59,15 +49,22 @@ export default function ImportPage() {
   const handleReset = useCallback(() => {
     setParseResult(null);
     setImportComplete(false);
+    setImportedCount(0);
   }, []);
 
+  // Check if we have valid parse result with required data for preview
+  const hasValidParseResult = parseResult &&
+    parseResult.columnMapping &&
+    parseResult.rawHeaders &&
+    parseResult.rawData;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">CSV Import</h1>
         <p className="text-sm text-muted-foreground">
-          Importiere deine Positionen aus einem Broker-Export (Comdirect oder Postbank)
+          Importiere deine Positionen aus einer CSV-Datei. Die Spalten werden automatisch erkannt.
         </p>
       </div>
 
@@ -79,9 +76,7 @@ export default function ImportPage() {
             Import erfolgreich!
           </h2>
           <p className="mt-2 text-muted-foreground">
-            {parseResult?.positions.length} Position
-            {parseResult?.positions.length !== 1 ? 'en' : ''} wurden
-            importiert.
+            {importedCount} Position{importedCount !== 1 ? 'en' : ''} wurden importiert.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <button
@@ -98,12 +93,14 @@ export default function ImportPage() {
             </a>
           </div>
         </div>
-      ) : parseResult && parseResult.positions.length > 0 ? (
-        /* CSV Preview */
+      ) : hasValidParseResult ? (
+        /* CSV Preview with mapping editor */
         <CsvPreview
           positions={parseResult.positions}
-          format={parseResult.format}
           errors={parseResult.errors}
+          columnMapping={parseResult.columnMapping as ColumnMapping}
+          rawHeaders={parseResult.rawHeaders as string[]}
+          rawData={parseResult.rawData as string[][]}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
         />
@@ -112,7 +109,7 @@ export default function ImportPage() {
         <div className="space-y-6">
           <CsvUploader onFileLoaded={handleFileLoaded} />
 
-          {parseResult && parseResult.errors.length > 0 && (
+          {parseResult && parseResult.errors.length > 0 && !hasValidParseResult && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
               <p className="font-medium text-destructive">Fehler beim Import</p>
               {parseResult.errors.map((error, i) => (
@@ -163,7 +160,21 @@ export default function ImportPage() {
                 </div>
                 <div>
                   <p className="font-medium text-card-foreground">
-                    Positionen bestätigen
+                    Spalten-Zuordnung prüfen
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Die Spalten werden automatisch erkannt. Du kannst die
+                    Zuordnung bei Bedarf anpassen.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  4
+                </div>
+                <div>
+                  <p className="font-medium text-card-foreground">
+                    Positionen importieren
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Überprüfe die erkannten Positionen und bestätige den Import.
@@ -174,10 +185,11 @@ export default function ImportPage() {
 
             <div className="mt-4 rounded-lg bg-muted p-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Unterstützte Broker:
+                Unterstützte Formate:
               </p>
               <p className="mt-1 text-sm text-foreground">
-                Comdirect · Postbank
+                CSV-Dateien mit Komma (,) oder Semikolon (;) als Trennzeichen.
+                Spalten werden automatisch anhand der Überschriften erkannt.
               </p>
             </div>
           </div>
