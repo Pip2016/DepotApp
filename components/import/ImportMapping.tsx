@@ -11,7 +11,7 @@ export function mapParsedToPositions(
   parsed: ParsedPosition[]
 ): Omit<Position, 'id'>[] {
   return parsed.map((p) => ({
-    symbol: isinToSymbol(p.isin) || p.isin,
+    symbol: isinToSymbol(p.isin) || p.wkn || p.isin || p.name.substring(0, 10).toUpperCase(),
     isin: p.isin,
     wkn: p.wkn,
     name: p.name,
@@ -40,7 +40,8 @@ const ISIN_SYMBOL_MAP: Record<string, string> = {
   'LU0392494562': 'DBXD.DE',
 };
 
-function isinToSymbol(isin: string): string | null {
+function isinToSymbol(isin: string | undefined): string | null {
+  if (!isin) return null;
   return ISIN_SYMBOL_MAP[isin] || null;
 }
 
@@ -64,7 +65,7 @@ export function ImportMapping({ parsedPositions }: ImportMappingProps) {
             <div>
               <p className="font-medium">{pos.name}</p>
               <p className="text-xs text-muted-foreground">
-                ISIN: {pos.isin}
+                {pos.isin ? `ISIN: ${pos.isin}` : pos.wkn ? `WKN: ${pos.wkn}` : '–'}
               </p>
             </div>
             <div className="text-right">
