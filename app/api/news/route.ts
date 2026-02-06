@@ -11,9 +11,19 @@ export async function GET(request: NextRequest) {
 
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'Finnhub API key not configured' }, { status: 500 });
+    // Return empty array instead of error - news is optional
+    console.warn('[News] Finnhub API key not configured');
+    return NextResponse.json([]);
   }
 
-  const news = await getCompanyNews(symbol, apiKey);
+  // Try with original symbol first
+  let news = await getCompanyNews(symbol, apiKey);
+
+  // If no news and symbol has exchange suffix (e.g., ALV.DE), try base symbol
+  if (news.length === 0 && symbol.includes('.')) {
+    const baseSymbol = symbol.split('.')[0];
+    news = await getCompanyNews(baseSymbol, apiKey);
+  }
+
   return NextResponse.json(news);
 }

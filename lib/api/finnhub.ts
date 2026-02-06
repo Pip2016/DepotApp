@@ -19,10 +19,20 @@ export async function getCompanyNews(
     );
 
     if (!response.ok) {
-      throw new Error(`Finnhub API error: ${response.status}`);
+      // 403 = rate limit or unsupported, 429 = rate limit - just return empty, don't spam logs
+      if (response.status === 403 || response.status === 429) {
+        console.log(`[News] Finnhub rate limited or unsupported for ${symbol}`);
+        return [];
+      }
+      console.warn(`[News] Finnhub API error ${response.status} for ${symbol}`);
+      return [];
     }
 
     const data: FinnhubNewsResponse[] = await response.json();
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
 
     return data.slice(0, 20).map((article) => ({
       id: String(article.id),
@@ -35,7 +45,8 @@ export async function getCompanyNews(
       related: article.related,
     }));
   } catch (error) {
-    console.error(`Error fetching news for ${symbol}:`, error);
+    // Network errors etc - just log and return empty
+    console.log(`[News] Failed to fetch news for ${symbol}`);
     return [];
   }
 }
