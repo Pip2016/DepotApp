@@ -225,6 +225,42 @@ export interface Database {
           }
         ];
       };
+      stock_cache: {
+        Row: {
+          id: string;
+          cache_key: string;
+          symbol: string;
+          data_type: 'quote' | 'fundamentals' | 'historical' | 'news';
+          data: Json;
+          provider: string | null;
+          fetched_at: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          cache_key: string;
+          symbol: string;
+          data_type: 'quote' | 'fundamentals' | 'historical' | 'news';
+          data: Json;
+          provider?: string | null;
+          fetched_at?: string;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          cache_key?: string;
+          symbol?: string;
+          data_type?: 'quote' | 'fundamentals' | 'historical' | 'news';
+          data?: Json;
+          provider?: string | null;
+          fetched_at?: string;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

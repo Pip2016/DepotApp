@@ -66,5 +66,6 @@ export interface ServiceResponse<T> {
   success: boolean;
   data?: T;
   provider?: string;
+  fromCache?: boolean;
   errors: ProviderError[];
 }
