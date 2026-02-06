@@ -15,15 +15,26 @@ export async function GET(request: NextRequest) {
   const result = await stockDataService.getFundamentals(symbol.toUpperCase());
 
   if (!result.success) {
-    return NextResponse.json(
-      {
-        error: 'Fundamentaldaten konnten nicht geladen werden',
-        userMessage:
-          'Die Unternehmensdaten sind momentan nicht verfügbar. Bitte versuche es später erneut.',
-        details: result.errors,
+    // Return empty fundamentals instead of error - allows UI to show partial data
+    console.warn(`[Fundamentals] No data available for ${symbol}:`, result.errors);
+    return NextResponse.json({
+      symbol: symbol.toUpperCase(),
+      marketCap: undefined,
+      peRatio: undefined,
+      forwardPE: undefined,
+      dividendYield: undefined,
+      fiftyTwoWeekHigh: 0,
+      fiftyTwoWeekLow: 0,
+      averageVolume: undefined,
+      beta: undefined,
+      eps: undefined,
+      provider: 'none',
+      _meta: {
+        provider: 'unavailable',
+        fetchedAt: new Date().toISOString(),
+        errors: result.errors,
       },
-      { status: 503 }
-    );
+    });
   }
 
   return NextResponse.json({
