@@ -332,7 +332,7 @@ export interface Database {
           close: number;
           adjusted_close: number | null;
           volume: number | null;
-          source: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual';
+          source: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual' | 'api_daily';
           created_at: string;
         };
         Insert: {
@@ -345,7 +345,7 @@ export interface Database {
           close: number;
           adjusted_close?: number | null;
           volume?: number | null;
-          source: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual';
+          source: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual' | 'api_daily';
           created_at?: string;
         };
         Update: {
@@ -358,7 +358,7 @@ export interface Database {
           close?: number;
           adjusted_close?: number | null;
           volume?: number | null;
-          source?: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual';
+          source?: 'yahoo_csv' | 'stooq_csv' | 'finnhub_api' | 'yahoo_api' | 'manual' | 'api_daily';
           created_at?: string;
         };
         Relationships: [];
@@ -447,6 +447,42 @@ export interface Database {
           error_messages?: Json | null;
           started_at?: string;
           completed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      stock_symbols: {
+        Row: {
+          id: string;
+          symbol: string;
+          name: string | null;
+          currency: string;
+          yahoo_symbol: string | null;
+          stooq_symbol: string | null;
+          is_active: boolean;
+          last_updated: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          symbol: string;
+          name?: string | null;
+          currency?: string;
+          yahoo_symbol?: string | null;
+          stooq_symbol?: string | null;
+          is_active?: boolean;
+          last_updated?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          symbol?: string;
+          name?: string | null;
+          currency?: string;
+          yahoo_symbol?: string | null;
+          stooq_symbol?: string | null;
+          is_active?: boolean;
+          last_updated?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };

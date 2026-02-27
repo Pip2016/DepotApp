@@ -25,9 +25,8 @@ import {
 interface ImportResult {
   success: boolean;
   symbol: string;
-  recordsImported: number;
+  imported: number;
   error?: string;
-  dateRange?: { from: string; to: string };
 }
 
 export default function ImportPage() {
@@ -45,10 +44,10 @@ export default function ImportPage() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/import/historical', {
+      const response = await fetch('/api/eod/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: symbol.toUpperCase() }),
+        body: JSON.stringify({ symbol: symbol.toUpperCase(), autoDownload: true }),
       });
 
       const result = await response.json();
@@ -56,7 +55,7 @@ export default function ImportPage() {
 
       if (result.success) {
         alert(
-          `Import erfolgreich: ${result.recordsImported} Datensätze für ${result.symbol}`
+          `Import erfolgreich: ${result.imported} Datensätze für ${result.symbol}`
         );
       } else {
         alert(`Import fehlgeschlagen: ${result.error}`);
@@ -77,13 +76,12 @@ export default function ImportPage() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/import/historical', {
+      const response = await fetch('/api/eod/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol: symbol.toUpperCase(),
-          csvContent,
-          source: 'manual',
+          csv: csvContent,
         }),
       });
 
@@ -91,7 +89,7 @@ export default function ImportPage() {
       setResults((prev) => [result, ...prev]);
 
       if (result.success) {
-        alert(`CSV Import erfolgreich: ${result.recordsImported} Datensätze`);
+        alert(`CSV Import erfolgreich: ${result.imported} Datensätze`);
         setCsvContent('');
       } else {
         alert(`Import fehlgeschlagen: ${result.error}`);
@@ -138,17 +136,17 @@ export default function ImportPage() {
 
     for (const sym of symbols) {
       try {
-        const response = await fetch('/api/import/historical', {
+        const response = await fetch('/api/eod/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbol: sym }),
+          body: JSON.stringify({ symbol: sym, autoDownload: true }),
         });
 
         const result = await response.json();
         setResults((prev) => [result, ...prev]);
       } catch {
         setResults((prev) => [
-          { success: false, symbol: sym, recordsImported: 0, error: 'Fehler' },
+          { success: false, symbol: sym, imported: 0, error: 'Fehler' },
           ...prev,
         ]);
       }
@@ -358,9 +356,7 @@ export default function ImportPage() {
                       <p className="font-medium">{result.symbol}</p>
                       {result.success ? (
                         <p className="text-sm text-muted-foreground">
-                          {result.recordsImported} Datensätze
-                          {result.dateRange &&
-                            ` (${result.dateRange.from} - ${result.dateRange.to})`}
+                          {result.imported} Datensätze
                         </p>
                       ) : (
                         <p className="text-sm text-red-600">{result.error}</p>
