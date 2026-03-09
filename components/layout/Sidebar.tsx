@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Menu,
   X,
+  Database,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -28,6 +30,19 @@ const navItems = [
     label: 'CSV Import',
     href: '/import',
     icon: Upload,
+  },
+];
+
+const adminItems = [
+  {
+    label: 'Daten Import',
+    href: '/admin/import',
+    icon: Database,
+  },
+  {
+    label: 'Cron Logs',
+    href: '/admin/logs',
+    icon: ClipboardList,
   },
 ];
 
@@ -91,6 +106,33 @@ export function Sidebar() {
               </Link>
             );
           })}
+
+          {/* Admin Section */}
+          <div className="pt-4 mt-4 border-t border-border">
+            <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase">
+              Admin
+            </p>
+            {adminItems.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Footer */}
