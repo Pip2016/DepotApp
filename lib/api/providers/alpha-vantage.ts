@@ -32,17 +32,20 @@ export class AlphaVantageProvider implements StockDataProvider {
     const response = await fetch(url);
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Alpha Vantage rate limited for ${symbol}`);
+      }
       throw new Error(`Alpha Vantage API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    if (data.Note) {
-      throw new Error('Alpha Vantage rate limit reached');
+    if (data.Note || data.Information?.includes('rate limit')) {
+      throw new Error(`Alpha Vantage rate limited for ${symbol}`);
     }
 
     if (data['Error Message']) {
-      throw new Error(`Alpha Vantage error: ${data['Error Message']}`);
+      throw new Error(`Alpha Vantage: ${data['Error Message']}`);
     }
 
     const quote = data['Global Quote'];
@@ -81,13 +84,16 @@ export class AlphaVantageProvider implements StockDataProvider {
     const response = await fetch(url);
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Alpha Vantage rate limited for ${symbol}`);
+      }
       throw new Error(`Alpha Vantage API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    if (data.Note) {
-      throw new Error('Alpha Vantage rate limit reached');
+    if (data.Note || data.Information?.includes('rate limit')) {
+      throw new Error(`Alpha Vantage rate limited for ${symbol}`);
     }
 
     if (!data.Symbol) {
@@ -127,13 +133,16 @@ export class AlphaVantageProvider implements StockDataProvider {
     const response = await fetch(url);
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Alpha Vantage rate limited for ${symbol}`);
+      }
       throw new Error(`Alpha Vantage API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    if (data.Note) {
-      throw new Error('Alpha Vantage rate limit reached');
+    if (data.Note || data.Information?.includes('rate limit')) {
+      throw new Error(`Alpha Vantage rate limited for ${symbol}`);
     }
 
     const timeSeriesKey = isIntraday

@@ -22,6 +22,8 @@ interface CacheEntry<T> {
 export class StockCacheService {
   private memoryCache: Map<string, { data: unknown; expiresAt: number }> =
     new Map();
+  private dbCacheDisabled = false;
+  private dbCacheWarningShown = false;
 
   private generateCacheKey(
     dataType: CacheDataType,
@@ -56,6 +58,17 @@ export class StockCacheService {
     });
   }
 
+  private handleMissingTable(): void {
+    this.dbCacheDisabled = true;
+    if (!this.dbCacheWarningShown) {
+      this.dbCacheWarningShown = true;
+      console.warn(
+        '[Cache] stock_cache table not found. Using memory-only cache. ' +
+        'Run the migration in supabase/migrations/002_stock_cache.sql to enable DB caching.'
+      );
+    }
+  }
+
   // Aus Supabase Cache lesen
   async get<T>(
     dataType: CacheDataType,
@@ -72,6 +85,10 @@ export class StockCacheService {
     }
 
     // 2. Dann Supabase Cache prüfen
+    if (this.dbCacheDisabled) {
+      return null;
+    }
+
     const supabase = createClient();
     if (!supabase) {
       console.log(`[Cache] Supabase not configured, skipping cache`);
@@ -86,7 +103,17 @@ export class StockCacheService {
         .gt('expires_at', new Date().toISOString())
         .single();
 
-      if (error || !data) {
+      if (error) {
+        // Check if table doesn't exist
+        if (error.code === 'PGRST205' || error.message?.includes('stock_cache')) {
+          this.handleMissingTable();
+          return null;
+        }
+        console.log(`[Cache] MISS: ${cacheKey}`);
+        return null;
+      }
+
+      if (!data) {
         console.log(`[Cache] MISS: ${cacheKey}`);
         return null;
       }
@@ -121,17 +148,23 @@ export class StockCacheService {
     const cacheKey = this.generateCacheKey(dataType, symbol, extra);
     const expiresAt = this.getExpirationDate(dataType);
 
+    // Always store in memory cache first
+    const cacheEntry: CacheEntry<T> = {
+      data,
+      provider,
+      fetchedAt: new Date().toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+    this.setInMemory(cacheKey, cacheEntry, expiresAt);
+
+    // Skip DB cache if disabled or not configured
+    if (this.dbCacheDisabled) {
+      return;
+    }
+
     const supabase = createClient();
     if (!supabase) {
       console.log(`[Cache] Supabase not configured, using memory cache only`);
-      // Still store in memory cache
-      const cacheEntry: CacheEntry<T> = {
-        data,
-        provider,
-        fetchedAt: new Date().toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      };
-      this.setInMemory(cacheKey, cacheEntry, expiresAt);
       return;
     }
 
@@ -153,6 +186,11 @@ export class StockCacheService {
       );
 
       if (error) {
+        // Check if table doesn't exist
+        if (error.code === 'PGRST205' || error.message?.includes('stock_cache')) {
+          this.handleMissingTable();
+          return;
+        }
         console.error('[Cache] Error writing:', error);
         return;
       }
@@ -160,15 +198,6 @@ export class StockCacheService {
       console.log(
         `[Cache] STORED: ${cacheKey} (expires: ${expiresAt.toISOString()})`
       );
-
-      // Auch in Memory Cache speichern
-      const cacheEntry: CacheEntry<T> = {
-        data,
-        provider,
-        fetchedAt: new Date().toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      };
-      this.setInMemory(cacheKey, cacheEntry, expiresAt);
     } catch (error) {
       console.error('[Cache] Error:', error);
     }
@@ -176,6 +205,17 @@ export class StockCacheService {
 
   // Cache für ein Symbol invalidieren
   async invalidate(symbol: string, dataType?: CacheDataType): Promise<void> {
+    // Always clear memory cache
+    for (const key of this.memoryCache.keys()) {
+      if (key.includes(symbol.toUpperCase())) {
+        if (!dataType || key.startsWith(dataType)) {
+          this.memoryCache.delete(key);
+        }
+      }
+    }
+
+    if (this.dbCacheDisabled) return;
+
     const supabase = createClient();
     if (!supabase) return;
 
@@ -189,13 +229,11 @@ export class StockCacheService {
         query = query.eq('data_type', dataType);
       }
 
-      await query;
+      const { error } = await query;
 
-      // Memory Cache auch leeren
-      for (const key of this.memoryCache.keys()) {
-        if (key.includes(symbol.toUpperCase())) {
-          this.memoryCache.delete(key);
-        }
+      if (error?.code === 'PGRST205') {
+        this.handleMissingTable();
+        return;
       }
 
       console.log(`[Cache] INVALIDATED: ${symbol} ${dataType || 'all'}`);
@@ -206,8 +244,22 @@ export class StockCacheService {
 
   // Cleanup abgelaufener Einträge
   async cleanup(): Promise<number> {
+    // Cleanup memory cache
+    let memoryCleanedCount = 0;
+    const now = Date.now();
+    for (const [key, entry] of this.memoryCache.entries()) {
+      if (now > entry.expiresAt) {
+        this.memoryCache.delete(key);
+        memoryCleanedCount++;
+      }
+    }
+
+    if (this.dbCacheDisabled) {
+      return memoryCleanedCount;
+    }
+
     const supabase = createClient();
-    if (!supabase) return 0;
+    if (!supabase) return memoryCleanedCount;
 
     try {
       const { data, error } = await supabase
@@ -216,14 +268,21 @@ export class StockCacheService {
         .lt('expires_at', new Date().toISOString())
         .select('id');
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205') {
+          this.handleMissingTable();
+          return memoryCleanedCount;
+        }
+        throw error;
+      }
 
-      const count = data?.length || 0;
-      console.log(`[Cache] CLEANUP: Removed ${count} expired entries`);
-      return count;
+      const dbCount = data?.length || 0;
+      const totalCount = memoryCleanedCount + dbCount;
+      console.log(`[Cache] CLEANUP: Removed ${totalCount} expired entries (${memoryCleanedCount} memory, ${dbCount} db)`);
+      return totalCount;
     } catch (error) {
       console.error('[Cache] Cleanup error:', error);
-      return 0;
+      return memoryCleanedCount;
     }
   }
 }

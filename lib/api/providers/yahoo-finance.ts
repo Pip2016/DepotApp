@@ -27,6 +27,9 @@ export class YahooFinanceProvider implements StockDataProvider {
     });
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Yahoo Finance rate limited for ${symbol}`);
+      }
       throw new Error(`Yahoo Finance API error: ${response.status}`);
     }
 
@@ -34,7 +37,7 @@ export class YahooFinanceProvider implements StockDataProvider {
     const result = data.chart?.result?.[0];
 
     if (!result) {
-      throw new Error('No data returned from Yahoo Finance');
+      throw new Error(`Symbol ${symbol} not found on Yahoo Finance`);
     }
 
     const meta = result.meta;
@@ -70,6 +73,9 @@ export class YahooFinanceProvider implements StockDataProvider {
     });
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Yahoo Finance rate limited for ${symbol}`);
+      }
       throw new Error(`Yahoo Finance API error: ${response.status}`);
     }
 
@@ -77,7 +83,7 @@ export class YahooFinanceProvider implements StockDataProvider {
     const result = data.quoteSummary?.result?.[0];
 
     if (!result) {
-      throw new Error('No fundamentals data from Yahoo Finance');
+      throw new Error(`No fundamentals for ${symbol} on Yahoo Finance`);
     }
 
     const summary = result.summaryDetail || {};
@@ -123,6 +129,9 @@ export class YahooFinanceProvider implements StockDataProvider {
     });
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Yahoo Finance rate limited for ${symbol}`);
+      }
       throw new Error(`Yahoo Finance API error: ${response.status}`);
     }
 
@@ -130,7 +139,7 @@ export class YahooFinanceProvider implements StockDataProvider {
     const result = data.chart?.result?.[0];
 
     if (!result) {
-      throw new Error('No historical data from Yahoo Finance');
+      throw new Error(`No historical data for ${symbol} on Yahoo Finance`);
     }
 
     const timestamps = result.timestamp || [];

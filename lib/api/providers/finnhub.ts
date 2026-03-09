@@ -27,6 +27,9 @@ export class FinnhubProvider implements StockDataProvider {
     const response = await fetch(url);
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Finnhub rate limited for ${symbol}`);
+      }
       throw new Error(`Finnhub API error: ${response.status}`);
     }
 
@@ -68,6 +71,9 @@ export class FinnhubProvider implements StockDataProvider {
     const response = await fetch(url);
 
     if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(`Finnhub rate limited for ${symbol}`);
+      }
       throw new Error(`Finnhub API error: ${response.status}`);
     }
 
