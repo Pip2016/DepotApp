@@ -1,11 +1,5 @@
 {
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/eod-update",
-      "schedule": "0 19 * * 1-5"
-    }
-  ]
+  "framework": "nextjs"
 }
