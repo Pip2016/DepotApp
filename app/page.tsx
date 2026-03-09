@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -16,13 +14,6 @@ import {
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.push('/dashboard');
-    }
-  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -30,10 +21,6 @@ export default function HomePage() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (user) {
-    return null; // Redirect is happening
   }
 
   return (
@@ -48,12 +35,20 @@ export default function HomePage() {
             <span className="text-xl font-bold">MyDepot</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="ghost">Anmelden</Button>
-            </Link>
-            <Link href="/signup">
-              <Button>Kostenlos starten</Button>
-            </Link>
+            {user ? (
+              <Link href="/dashboard">
+                <Button>Zum Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Anmelden</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button>Kostenlos starten</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -71,17 +66,28 @@ export default function HomePage() {
             Postbank und anderen Brokern.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/signup">
-              <Button size="lg" className="gap-2">
-                Jetzt starten
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline">
-                Ich habe bereits ein Konto
-              </Button>
-            </Link>
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="lg" className="gap-2">
+                  Zum Dashboard
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/signup">
+                  <Button size="lg" className="gap-2">
+                    Jetzt starten
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="lg" variant="outline">
+                    Ich habe bereits ein Konto
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </section>
 
