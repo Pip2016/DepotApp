@@ -486,6 +486,51 @@ export interface Database {
         };
         Relationships: [];
       };
+      cron_logs: {
+        Row: {
+          id: string;
+          job_name: string;
+          status: 'started' | 'completed' | 'failed';
+          symbols_total: number | null;
+          symbols_success: number | null;
+          symbols_failed: number | null;
+          details: Json | null;
+          error_message: string | null;
+          started_at: string;
+          completed_at: string | null;
+          duration_ms: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_name?: string;
+          status: 'started' | 'completed' | 'failed';
+          symbols_total?: number | null;
+          symbols_success?: number | null;
+          symbols_failed?: number | null;
+          details?: Json | null;
+          error_message?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_name?: string;
+          status?: 'started' | 'completed' | 'failed';
+          symbols_total?: number | null;
+          symbols_success?: number | null;
+          symbols_failed?: number | null;
+          details?: Json | null;
+          error_message?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
