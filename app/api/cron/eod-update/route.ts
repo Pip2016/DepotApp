@@ -19,6 +19,10 @@ export async function GET(request: Request) {
   const supabase = createClient();
   const startTime = Date.now();
 
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+  }
+
   // Log starten
   const { data: logEntry } = await supabase
     .from('cron_logs')
