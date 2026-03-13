@@ -5,32 +5,15 @@ import {
   HistoricalDataPoint,
   ProviderError,
   ServiceResponse,
+  PerformanceData,
 } from './providers/types';
 import { YahooFinanceProvider } from './providers/yahoo-finance';
 import { FinnhubProvider } from './providers/finnhub';
 import { AlphaVantageProvider } from './providers/alpha-vantage';
 import { stockCache } from '@/lib/cache/stock-cache-service';
 
-// Performance Daten Interface
-export interface PerformanceData {
-  currentPrice: number;
-
-  // Absolute Änderungen
-  change1D: number;
-  change1W: number;
-  change1M: number;
-  change3M: number;
-  changeYTD: number;
-  change1Y: number;
-
-  // Prozentuale Änderungen
-  changePercent1D: number;
-  changePercent1W: number;
-  changePercent1M: number;
-  changePercent3M: number;
-  changePercentYTD: number;
-  changePercent1Y: number;
-}
+// Re-export for backwards compatibility
+export type { PerformanceData } from './providers/types';
 
 class StockDataService {
   private providers: StockDataProvider[];
