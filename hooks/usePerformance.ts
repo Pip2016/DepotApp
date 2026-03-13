@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { PerformanceData } from '@/lib/api/stock-data-service';
+import type { PerformanceData } from '@/lib/api/providers/types';
 
 interface UsePerformanceResult {
   performance: PerformanceData | null;

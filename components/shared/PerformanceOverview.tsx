@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { PerformanceBadge } from './PerformanceBadge';
-import type { PerformanceData } from '@/lib/api/stock-data-service';
+import type { PerformanceData } from '@/lib/api/providers/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PerformanceOverviewProps {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { PerformanceBadge } from './PerformanceBadge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import type { PerformanceData } from '@/lib/api/stock-data-service';
+import type { PerformanceData } from '@/lib/api/providers/types';
 
 interface PerformanceTimeframesProps {
   performance: PerformanceData;
