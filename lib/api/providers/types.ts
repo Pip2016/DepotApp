@@ -69,3 +69,24 @@ export interface ServiceResponse<T> {
   fromCache?: boolean;
   errors: ProviderError[];
 }
+
+// Performance Daten Interface
+export interface PerformanceData {
+  currentPrice: number;
+
+  // Absolute Änderungen
+  change1D: number;
+  change1W: number;
+  change1M: number;
+  change3M: number;
+  changeYTD: number;
+  change1Y: number;
+
+  // Prozentuale Änderungen
+  changePercent1D: number;
+  changePercent1W: number;
+  changePercent1M: number;
+  changePercent3M: number;
+  changePercentYTD: number;
+  changePercent1Y: number;
+}

@@ -1,0 +1,32 @@
+name: EOD Stock Data Update
+
+on:
+  schedule:
+    # Täglich um 18:00 UTC (Mo-Fr) - nach Börsenschluss
+    - cron: '0 18 * * 1-5'
+  workflow_dispatch: # Manuelles Auslösen ermöglichen
+
+jobs:
+  update-stock-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger EOD Update
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X GET \
+            "${{ secrets.APP_URL }}/api/cron/eod-update" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" -ne 200 ]; then
+            echo "Error: API returned $http_code"
+            exit 1
+          fi
+
+          echo "EOD Update completed successfully"
