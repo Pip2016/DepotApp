@@ -113,14 +113,16 @@ export function useSupabasePortfolio(): UseSupabasePortfolioReturn {
       setActivePortfolioId(null);
       setIsLoading(false);
     }
-  }, [user, supabase, fetchPortfolios]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, supabase]);
 
   // Fetch positions when active portfolio changes
   useEffect(() => {
     if (activePortfolioId && supabase) {
       fetchPositions();
     }
-  }, [activePortfolioId, supabase, fetchPositions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePortfolioId, supabase]);
 
   const refresh = useCallback(async () => {
     setError(null);

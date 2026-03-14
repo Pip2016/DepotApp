@@ -86,7 +86,8 @@ export function useStockData(symbol: string | null, range: string = '1mo') {
 
   useEffect(() => {
     fetchStockData();
-  }, [fetchStockData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, range]);
 
   return { ...state, refetch: fetchStockData };
 }
