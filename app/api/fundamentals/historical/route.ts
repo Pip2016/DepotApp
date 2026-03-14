@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { fmpProvider, FMPRateLimitError } from '@/lib/api/providers/fmp';
 import type { StockFundamentals, FundamentalsResponse } from '@/types/fundamentals';
 
 // Cache TTL: 24 Stunden (historische Daten ändern sich selten)
 const CACHE_TTL_HOURS = 24;
+
+// Dynamischer Import für Supabase (optional)
+async function getSupabaseClient() {
+  try {
+    const { createClient } = await import('@/lib/supabase/server');
+    return await createClient();
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -20,31 +29,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await getSupabaseClient();
 
-    // 1. Prüfe Cache (außer bei forceRefresh)
-    if (!forceRefresh) {
-      const { data: cached } = await supabase
-        .from('stock_fundamentals')
-        .select('*')
-        .eq('symbol', symbol)
-        .order('fiscal_year', { ascending: false })
-        .limit(years);
+    // 1. Prüfe Cache (außer bei forceRefresh) - nur wenn Supabase verfügbar
+    if (supabase && !forceRefresh) {
+      try {
+        const { data: cached } = await supabase
+          .from('stock_fundamentals')
+          .select('*')
+          .eq('symbol', symbol)
+          .order('fiscal_year', { ascending: false })
+          .limit(years);
 
-      if (cached && cached.length > 0) {
-        // Prüfe ob Cache noch gültig (letzte 24h aktualisiert)
-        const lastUpdated = new Date(cached[0].updated_at);
-        const hoursSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
+        if (cached && cached.length > 0) {
+          const lastUpdated = new Date(cached[0].updated_at);
+          const hoursSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
 
-        if (hoursSinceUpdate < CACHE_TTL_HOURS) {
-          const response: FundamentalsResponse = {
-            symbol,
-            currency: cached[0].currency || 'USD',
-            years: cached.map(mapDbToFundamentals),
-            cached: true,
-          };
-          return NextResponse.json(response);
+          if (hoursSinceUpdate < CACHE_TTL_HOURS) {
+            const response: FundamentalsResponse = {
+              symbol,
+              currency: cached[0].currency || 'USD',
+              years: cached.map(mapDbToFundamentals),
+              cached: true,
+            };
+            return NextResponse.json(response);
+          }
         }
+      } catch (cacheError) {
+        console.warn('[Fundamentals] Cache read failed, fetching fresh data:', cacheError);
       }
     }
 
@@ -61,61 +73,67 @@ export async function GET(request: NextRequest) {
       } as FundamentalsResponse);
     }
 
-    // 3. Speichere in Datenbank (upsert)
-    for (const f of fundamentals) {
-      await supabase.from('stock_fundamentals').upsert(
-        {
-          symbol: f.symbol,
-          fiscal_year: f.fiscalYear,
-          fiscal_year_end: f.fiscalYearEnd,
-          is_estimate: f.isEstimate,
-          currency: f.currency,
-          eps: f.eps,
-          pe_ratio: f.peRatio,
-          earnings_growth_pct: f.earningsGrowthPct,
-          peg_ratio: f.pegRatio,
-          dividend_per_share: f.dividendPerShare,
-          dividend_yield_pct: f.dividendYieldPct,
-          payout_ratio_pct: f.payoutRatioPct,
-          operating_cashflow: f.operatingCashflow,
-          cashflow_per_share: f.cashflowPerShare,
-          pcf_ratio: f.pcfRatio,
-          free_cashflow: f.freeCashflow,
-          revenue: f.revenue,
-          revenue_growth_pct: f.revenueGrowthPct,
-          revenue_per_employee: f.revenuePerEmployee,
-          employee_count: f.employeeCount,
-          book_value_per_share: f.bookValuePerShare,
-          pb_ratio: f.pbRatio,
-          total_assets: f.totalAssets,
-          total_equity: f.totalEquity,
-          total_debt: f.totalDebt,
-          equity_ratio_pct: f.equityRatioPct,
-          debt_ratio_pct: f.debtRatioPct,
-          dynamic_debt_ratio_pct: f.dynamicDebtRatioPct,
-          accounting_standard: f.accountingStandard,
-          market_cap: f.marketCap,
-          enterprise_value: f.enterpriseValue,
-          market_cap_to_revenue: f.marketCapToRevenue,
-          market_cap_to_employee: f.marketCapToEmployee,
-          ev_to_ebitda: f.evToEbitda,
-          gross_margin_pct: f.grossMarginPct,
-          operating_margin_pct: f.operatingMarginPct,
-          net_margin_pct: f.netMarginPct,
-          cashflow_margin_pct: f.cashflowMarginPct,
-          ebit: f.ebit,
-          ebit_margin_pct: f.ebitMarginPct,
-          ebitda: f.ebitda,
-          ebitda_margin_pct: f.ebitdaMarginPct,
-          roe_pct: f.roePct,
-          roa_pct: f.roaPct,
-          roic_pct: f.roicPct,
-          net_income: f.netIncome,
-          shares_outstanding: f.sharesOutstanding,
-          data_source: 'fmp',
-        },
-        { onConflict: 'symbol,fiscal_year' }
-      );
+    // 3. Speichere in Datenbank (upsert) - nur wenn Supabase verfügbar
+    if (supabase) {
+      try {
+        for (const f of fundamentals) {
+          await supabase.from('stock_fundamentals').upsert(
+            {
+              symbol: f.symbol,
+              fiscal_year: f.fiscalYear,
+              fiscal_year_end: f.fiscalYearEnd,
+              is_estimate: f.isEstimate,
+              currency: f.currency,
+              eps: f.eps,
+              pe_ratio: f.peRatio,
+              earnings_growth_pct: f.earningsGrowthPct,
+              peg_ratio: f.pegRatio,
+              dividend_per_share: f.dividendPerShare,
+              dividend_yield_pct: f.dividendYieldPct,
+              payout_ratio_pct: f.payoutRatioPct,
+              operating_cashflow: f.operatingCashflow,
+              cashflow_per_share: f.cashflowPerShare,
+              pcf_ratio: f.pcfRatio,
+              free_cashflow: f.freeCashflow,
+              revenue: f.revenue,
+              revenue_growth_pct: f.revenueGrowthPct,
+              revenue_per_employee: f.revenuePerEmployee,
+              employee_count: f.employeeCount,
+              book_value_per_share: f.bookValuePerShare,
+              pb_ratio: f.pbRatio,
+              total_assets: f.totalAssets,
+              total_equity: f.totalEquity,
+              total_debt: f.totalDebt,
+              equity_ratio_pct: f.equityRatioPct,
+              debt_ratio_pct: f.debtRatioPct,
+              dynamic_debt_ratio_pct: f.dynamicDebtRatioPct,
+              accounting_standard: f.accountingStandard,
+              market_cap: f.marketCap,
+              enterprise_value: f.enterpriseValue,
+              market_cap_to_revenue: f.marketCapToRevenue,
+              market_cap_to_employee: f.marketCapToEmployee,
+              ev_to_ebitda: f.evToEbitda,
+              gross_margin_pct: f.grossMarginPct,
+              operating_margin_pct: f.operatingMarginPct,
+              net_margin_pct: f.netMarginPct,
+              cashflow_margin_pct: f.cashflowMarginPct,
+              ebit: f.ebit,
+              ebit_margin_pct: f.ebitMarginPct,
+              ebitda: f.ebitda,
+              ebitda_margin_pct: f.ebitdaMarginPct,
+              roe_pct: f.roePct,
+              roa_pct: f.roaPct,
+              roic_pct: f.roicPct,
+              net_income: f.netIncome,
+              shares_outstanding: f.sharesOutstanding,
+              data_source: 'fmp',
+            },
+            { onConflict: 'symbol,fiscal_year' }
+          );
+        }
+      } catch (saveError) {
+        console.warn('[Fundamentals] Cache save failed:', saveError);
+      }
     }
 
     const response: FundamentalsResponse = {
@@ -130,24 +148,30 @@ export async function GET(request: NextRequest) {
     // Rate Limit Error handling
     if ((error as FMPRateLimitError).isRateLimit) {
       // Versuche gecachte Daten zurückzugeben
-      const supabase = await createClient();
-      const { data: cached } = await supabase
-        .from('stock_fundamentals')
-        .select('*')
-        .eq('symbol', symbol)
-        .order('fiscal_year', { ascending: false })
-        .limit(years);
+      const supabase = await getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: cached } = await supabase
+            .from('stock_fundamentals')
+            .select('*')
+            .eq('symbol', symbol)
+            .order('fiscal_year', { ascending: false })
+            .limit(years);
 
-      if (cached && cached.length > 0) {
-        const response: FundamentalsResponse = {
-          symbol,
-          currency: cached[0].currency || 'USD',
-          years: cached.map(mapDbToFundamentals),
-          cached: true,
-          limitReached: true,
-          error: 'API rate limit reached. Showing cached data.',
-        };
-        return NextResponse.json(response);
+          if (cached && cached.length > 0) {
+            const response: FundamentalsResponse = {
+              symbol,
+              currency: cached[0].currency || 'USD',
+              years: cached.map(mapDbToFundamentals),
+              cached: true,
+              limitReached: true,
+              error: 'API rate limit reached. Showing cached data.',
+            };
+            return NextResponse.json(response);
+          }
+        } catch {
+          // Cache read failed, continue with error response
+        }
       }
 
       return NextResponse.json(
