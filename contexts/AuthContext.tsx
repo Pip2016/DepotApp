@@ -40,8 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
-  const supabase = useMemo(() => createClient(), []);
+  // Mark as mounted on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const supabase = useMemo(() => {
+    try {
+      return createClient();
+    } catch (error) {
+      console.error('Failed to create Supabase client:', error);
+      return null;
+    }
+  }, []);
 
   const fetchProfile = useCallback(
     async (userId: string) => {
@@ -73,27 +86,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // If Supabase is not configured, skip auth initialization
     if (!supabase) {
+      console.log('[Auth] Supabase not configured, skipping auth');
       setIsLoading(false);
       return;
     }
 
-    // Get initial session
+    let didCancel = false;
+
+    // Get initial session with timeout
     const getSession = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // Timeout after 5 seconds to prevent infinite loading
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Session timeout')), 5000);
+        });
+
+        const sessionPromise = supabase.auth.getSession();
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+
+        if (didCancel) return;
+
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          setProfile(profile);
+          if (!didCancel) setProfile(profile);
         }
       } catch (error) {
-        console.error('Error getting session:', error);
+        console.error('[Auth] Error getting session:', error);
       } finally {
-        setIsLoading(false);
+        if (!didCancel) setIsLoading(false);
       }
     };
 
@@ -103,12 +126,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
+      if (didCancel) return;
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
+        if (!didCancel) setProfile(profile);
       } else {
         setProfile(null);
       }
@@ -117,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      didCancel = true;
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,12 +206,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, [supabase]);
 
+  // isLoading is true until we're mounted AND auth check is complete
+  const effectiveIsLoading = !mounted || isLoading;
+
   const value = useMemo(
     () => ({
       user,
       profile,
       session,
-      isLoading,
+      isLoading: effectiveIsLoading,
       isConfigured: isSupabaseConfigured,
       signInWithEmail,
       signUpWithEmail,
@@ -198,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       session,
-      isLoading,
+      effectiveIsLoading,
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
