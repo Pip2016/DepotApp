@@ -10,8 +10,10 @@ import { FundamentalData } from '@/components/stock/FundamentalData';
 import { StockNews } from '@/components/stock/StockNews';
 import { PerformanceTimeframes } from '@/components/shared/PerformanceTimeframes';
 import { AddToWatchlistButton } from '@/components/watchlist/AddToWatchlistButton';
+import { FundamentalsView } from '@/components/fundamentals';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, BarChart3, TrendingUp, Newspaper } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StockDetailPage() {
@@ -52,34 +54,62 @@ export default function StockDetailPage() {
         currentRange={range}
       />
 
-      {/* Performance Section */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4">Performance</h2>
-        {performanceLoading ? (
-          <Skeleton className="h-40 w-full rounded-lg" />
-        ) : performance ? (
-          <PerformanceTimeframes
-            performance={performance}
-            showBadge
-            layout="horizontal"
-            defaultTimeframe="1Y"
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="overview" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Übersicht</span>
+          </TabsTrigger>
+          <TabsTrigger value="fundamentals" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Fundamentale Kennzahlen</span>
+          </TabsTrigger>
+          <TabsTrigger value="news" className="gap-2">
+            <Newspaper className="h-4 w-4" />
+            <span className="hidden sm:inline">News</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Übersicht Tab */}
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          {/* Performance Section */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4">Performance</h2>
+            {performanceLoading ? (
+              <Skeleton className="h-40 w-full rounded-lg" />
+            ) : performance ? (
+              <PerformanceTimeframes
+                performance={performance}
+                showBadge
+                layout="horizontal"
+                defaultTimeframe="1Y"
+              />
+            ) : (
+              <p className="text-muted-foreground">
+                Performance-Daten nicht verfügbar
+              </p>
+            )}
+          </section>
+
+          {/* Quick Fundamentals */}
+          <FundamentalData
+            data={fundamentals}
+            isLoading={isLoading}
+            currency={quote?.currency}
           />
-        ) : (
-          <p className="text-muted-foreground">
-            Performance-Daten nicht verfügbar
-          </p>
-        )}
-      </section>
+        </TabsContent>
 
-      {/* Fundamentals */}
-      <FundamentalData
-        data={fundamentals}
-        isLoading={isLoading}
-        currency={quote?.currency}
-      />
+        {/* Fundamentale Kennzahlen Tab */}
+        <TabsContent value="fundamentals" className="mt-6">
+          <FundamentalsView symbol={symbol} />
+        </TabsContent>
 
-      {/* News */}
-      <StockNews news={news} isLoading={isLoading} />
+        {/* News Tab */}
+        <TabsContent value="news" className="mt-6">
+          <StockNews news={news} isLoading={isLoading} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
