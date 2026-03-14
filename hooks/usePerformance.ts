@@ -48,7 +48,8 @@ export function usePerformance(symbol: string): UsePerformanceResult {
 
   useEffect(() => {
     fetchPerformance();
-  }, [fetchPerformance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
 
   return {
     performance,

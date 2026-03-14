@@ -69,7 +69,8 @@ export function useActivities(portfolioId?: string): UseActivitiesReturn {
       setActivities([]);
       setIsLoading(false);
     }
-  }, [user, supabase, fetchActivities]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, supabase, portfolioId]);
 
   const refresh = useCallback(async () => {
     setError(null);

@@ -60,7 +60,8 @@ export function useWatchlist(): UseWatchlistReturn {
       setItems([]);
       setIsLoading(false);
     }
-  }, [user, supabase, fetchWatchlist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, supabase]);
 
   const refresh = useCallback(async () => {
     setError(null);
