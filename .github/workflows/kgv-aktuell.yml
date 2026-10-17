@@ -1,0 +1,40 @@
+# .github/workflows/kgv-aktuell.yml
+
+name: KGV aktuell (Yahoo)
+
+on:
+  # Montag-Freitag um 22:17 UTC, nach US-Börsenschluss
+  schedule:
+    - cron: '17 22 * * 1-5'
+
+  # Manuell auslösbar für Tests
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-kgv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: KGV von Yahoo holen
+        run: node scripts/kgv-aktuell-yahoo.mjs
+
+      - name: Committen, falls geändert
+        run: |
+          if git diff --quiet -- data/kgv-baender-aktuell.csv && git ls-files --error-unmatch data/kgv-baender-aktuell.csv >/dev/null 2>&1; then
+            echo "Keine Änderung."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/kgv-baender-aktuell.csv
+          git commit -m "KGV aktuell $(date -u +%F)"
+          git push
