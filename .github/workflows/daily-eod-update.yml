@@ -3,7 +3,10 @@
 name: Daily EOD Update
 
 on:
-  # Eingefroren: Zeitplan entfernt, nur manuell auslösbar
+  # Zeitplan: Montag-Freitag um 19:00 UTC (20:00/21:00 DE)
+  schedule:
+    - cron: '0 19 * * 1-5'
+
   # Manuell auslösbar für Tests
   workflow_dispatch:
 

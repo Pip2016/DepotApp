@@ -1,8 +1,5 @@
 {
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "git": {
-    "deploymentEnabled": false
-  }
+  "framework": "nextjs"
 }

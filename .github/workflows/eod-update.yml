@@ -1,7 +1,9 @@
 name: EOD Stock Data Update
 
 on:
-  # Eingefroren: Zeitplan entfernt, nur manuell auslösbar
+  schedule:
+    # Täglich um 18:00 UTC (Mo-Fr) - nach Börsenschluss
+    - cron: '0 18 * * 1-5'
   workflow_dispatch: # Manuelles Auslösen ermöglichen
 
 jobs:
