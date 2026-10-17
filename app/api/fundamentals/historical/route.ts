@@ -32,11 +32,13 @@ export async function GET(request: NextRequest) {
         .limit(years);
 
       if (cached && cached.length > 0) {
-        // Prüfe ob Cache noch gültig (letzte 24h aktualisiert)
+        // Prüfe ob Cache noch gültig (letzte 24h aktualisiert).
+        // Daten aus dem Fundamentals-Cron (SEC/Yahoo) hält der Cron selbst aktuell.
         const lastUpdated = new Date(cached[0].updated_at);
         const hoursSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
+        const fromCron = cached[0].data_source && cached[0].data_source !== 'fmp';
 
-        if (hoursSinceUpdate < CACHE_TTL_HOURS) {
+        if (fromCron || hoursSinceUpdate < CACHE_TTL_HOURS) {
           const response: FundamentalsResponse = {
             symbol,
             currency: cached[0].currency || 'USD',
