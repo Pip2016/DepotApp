@@ -1,7 +1,7 @@
 // KGV-Bänder aus Financial Modeling Prep (FMP) berechnen.
 //
 // Liest die Titel aus data/kgv-baender-dividendenliste.csv (Spalte "Yahoo"),
-// holt je Titel die Jahres-KGVs der letzten 10 Geschäftsjahre und das
+// holt je Titel die Jahres-KGVs der letzten 5 Geschäftsjahre und das
 // aktuelle KGV (TTM) und schreibt data/kgv-baender-fmp.csv.
 //
 // Aufruf:  FMP_API_KEY=... node scripts/kgv-baender-fmp.mjs
@@ -18,7 +18,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INPUT = path.join(root, 'data/kgv-baender-dividendenliste.csv');
 const OUTPUT = path.join(root, 'data/kgv-baender-fmp.csv');
 const BASE = 'https://financialmodelingprep.com/stable';
-const YEARS = 10;
+const YEARS = 5; // Free Tier erlaubt höchstens limit=5
 const PAUSE_MS = 250;
 
 const apiKey = process.env.FMP_API_KEY;
