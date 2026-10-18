@@ -1,5 +1,6 @@
 {
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)data/kgv-baender-aktuell.csv'"
 }
