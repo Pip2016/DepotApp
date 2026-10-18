@@ -31,9 +31,9 @@ export interface RawAnnual {
 
 export interface PriceHistory {
   currency: string;
-  // 'YYYY-MM' -> Schlusskurs des Monats (splitbereinigt)
+  // 'YYYY-MM' -> Schlusskurs des Monats (splitbereinigt, nicht um Abspaltungen bereinigt)
   monthlyClose: Map<string, number>;
-  // Splits: Datum (ms) und Faktor (z. B. 3 bei 3:1)
+  // Echte Splits: Datum (ms) und Faktor (z. B. 3 bei 3:1)
   splits: Array<{ date: number; factor: number }>;
 }
 
@@ -120,6 +120,14 @@ export async function fetchYahooAnnual(symbol: string, session: YahooSession): P
   return byYear;
 }
 
+// Echte Splits haben einfache Verhältnisse (2:1, 3:2, 1:25); Abspaltungen krumme (1323:1000)
+function isSimpleRatio(numerator: number, denominator: number): boolean {
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  const g = gcd(Math.round(numerator), Math.round(denominator)) || 1;
+  const [p, q] = [Math.round(numerator) / g, Math.round(denominator) / g];
+  return Math.min(p, q) === 1 || Math.max(p, q) <= 20;
+}
+
 export async function fetchYahooPrices(symbol: string, session: YahooSession): Promise<PriceHistory> {
   const data = (await yahooJson(
     // range=max liefert bei langer Historie Quartals- statt Monatswerte, period1=0 nicht
@@ -139,6 +147,14 @@ export async function fetchYahooPrices(symbol: string, session: YahooSession): P
   const result = data.chart?.result?.[0];
   if (!result) throw new Error('Yahoo: keine Kursdaten');
 
+  const events = Object.values(result.events?.splits ?? {})
+    .filter((s) => s.numerator > 0 && s.denominator > 0)
+    .map((s) => ({ date: s.date * 1000, factor: s.numerator / s.denominator, simple: isSimpleRatio(s.numerator, s.denominator) }));
+  // Yahoo führt auch Abspaltungen als "Split" (3M/Solventum 1196:1000) und bereinigt die Kurse damit,
+  // die Je-Aktie-Werte aber nicht. Solche Faktoren werden aus den Kursen wieder herausgerechnet.
+  const spinoffs = events.filter((e) => !e.simple);
+  const splits = events.filter((e) => e.simple).map(({ date, factor }) => ({ date, factor }));
+
   const monthlyClose = new Map<string, number>();
   const closes = result.indicators.quote[0]?.close ?? [];
   // Monatsbeginn liegt in Börsen-Ortszeit (für Europa ist das in UTC noch der Vormonat)
@@ -146,13 +162,10 @@ export async function fetchYahooPrices(symbol: string, session: YahooSession): P
   (result.timestamp ?? []).forEach((ts, i) => {
     const close = closes[i];
     if (close != null && Number.isFinite(close)) {
-      monthlyClose.set(new Date((ts + offset) * 1000).toISOString().slice(0, 7), close);
+      const unadjust = spinoffs.filter((s) => s.date > ts * 1000).reduce((f, s) => f * s.factor, 1);
+      monthlyClose.set(new Date((ts + offset) * 1000).toISOString().slice(0, 7), close * unadjust);
     }
   });
-
-  const splits = Object.values(result.events?.splits ?? {})
-    .filter((s) => s.numerator > 0 && s.denominator > 0)
-    .map((s) => ({ date: s.date * 1000, factor: s.numerator / s.denominator }));
 
   return { currency: result.meta.currency, monthlyClose, splits };
 }
