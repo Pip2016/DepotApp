@@ -9,6 +9,8 @@ export interface Position {
   buyDate: string;
   currentPrice?: number;
   currency: 'EUR' | 'USD';
+  // Bereits eingebuchte Kapitalmaßnahmen (CorporateAction.id)
+  appliedActions?: string[];
 }
 
 export interface Portfolio {

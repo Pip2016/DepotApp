@@ -1,16 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
-// Eingefroren: Nur die Startseite ist öffentlich erreichbar. Alle anderen
-// Seiten leiten auf "/" um. API-Routen (u. a. der EOD-Cron) sind vom
-// Matcher ausgenommen und laufen weiter.
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname !== '/') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-  return NextResponse.next();
+  return await updateSession(request);
 }
 
 export const config = {

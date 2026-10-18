@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { usePortfolio } from '@/hooks/usePortfolio';
-import { useMultipleStockQuotes } from '@/hooks/useStockData';
+import { usePortfolioQuotes } from '@/hooks/usePortfolioQuotes';
 import { PortfolioSummary } from '@/components/portfolio/PortfolioSummary';
 import { PositionList } from '@/components/portfolio/PositionList';
 import { AllocationChart } from '@/components/portfolio/AllocationChart';
@@ -15,12 +15,7 @@ export default function DashboardPage() {
   const { portfolio, addPosition, removePosition } = usePortfolio();
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const symbols = useMemo(
-    () => portfolio.positions.map((p) => p.symbol),
-    [portfolio.positions]
-  );
-
-  const { quotes, isLoading } = useMultipleStockQuotes(symbols);
+  const { quotes, isLoading } = usePortfolioQuotes(portfolio.positions);
 
   // Generate mock performance data based on portfolio
   const performanceData = useMemo(() => {

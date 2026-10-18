@@ -1,12 +1,28 @@
+'use client';
+
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 import {
   TrendingUp,
   PieChart,
   FileSpreadsheet,
   Shield,
+  ArrowRight,
+  Loader2,
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}
@@ -18,6 +34,22 @@ export default function HomePage() {
             </div>
             <span className="text-xl font-bold">MyDepot</span>
           </Link>
+          <div className="flex items-center gap-4">
+            {user ? (
+              <Link href="/dashboard">
+                <Button>Zum Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Anmelden</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button>Kostenlos starten</Button>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -33,6 +65,30 @@ export default function HomePage() {
             übersichtlichen Charts und einfachem CSV-Import von Comdirect,
             Postbank und anderen Brokern.
           </p>
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="lg" className="gap-2">
+                  Zum Dashboard
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/signup">
+                  <Button size="lg" className="gap-2">
+                    Jetzt starten
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="lg" variant="outline">
+                    Ich habe bereits ein Konto
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
         </section>
 
         {/* Features Section */}

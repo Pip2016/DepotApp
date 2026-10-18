@@ -26,6 +26,7 @@ const FLOW_TAGS: Partial<Record<keyof RawAnnual, string[]>> = {
     'RevenueFromContractWithCustomerExcludingAssessedTax',
     'RevenueFromContractWithCustomerIncludingAssessedTax',
     'SalesRevenueNet',
+    'SalesRevenueGoodsNet',
   ],
   grossProfit: ['GrossProfit'],
   operatingIncome: ['OperatingIncomeLoss'],
@@ -59,6 +60,11 @@ const DEBT_TAGS = {
   shortTerm: ['ShortTermBorrowings', 'CommercialPaper'],
 };
 
+// Ticker, deren SEC-Zuordnung auf eine neue Holding ohne Berichtshistorie zeigt
+const CIK_OVERRIDES: Record<string, number> = {
+  XOM: 34088, // Exxon Mobil Corp; der Ticker zeigt inzwischen auf ExxonMobil Holdings Corp
+};
+
 let tickerMap: Map<string, number> | null = null;
 
 function userAgent(): string | null {
@@ -77,6 +83,8 @@ async function secJson(url: string): Promise<unknown> {
 }
 
 async function cikFor(ticker: string): Promise<number | null> {
+  const override = CIK_OVERRIDES[ticker.toUpperCase()];
+  if (override) return override;
   if (!tickerMap) {
     const data = (await secJson('https://www.sec.gov/files/company_tickers.json')) as Record<
       string,
@@ -89,9 +97,14 @@ async function cikFor(ticker: string): Promise<number | null> {
 
 const days = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / 86_400_000;
 
-// Werte aus 10-K je Geschäftsjahresende. Der erste Tag mit einem Wert gewinnt,
-// innerhalb eines Tags die früheste Einreichung (Originalbericht).
-function annualValues(facts: Facts, tags: string[], kind: 'flow' | 'instant'): Map<string, Fact> {
+// Werte aus 10-K je Geschäftsjahresende. Der erste Tag mit einem Wert gewinnt (bei pick 'max'
+// der größte Wert über alle Tags), innerhalb eines Tags die früheste Einreichung (Originalbericht).
+function annualValues(
+  facts: Facts,
+  tags: string[],
+  kind: 'flow' | 'instant',
+  pick: 'first' | 'max' = 'first'
+): Map<string, Fact> {
   const byEnd = new Map<string, Fact>();
   for (const tag of tags) {
     const fromTag = new Map<string, Fact>();
@@ -106,7 +119,8 @@ function annualValues(facts: Facts, tags: string[], kind: 'flow' | 'instant'): M
       if (!prev || fact.filed < prev.filed) fromTag.set(fact.end, fact);
     }
     for (const [end, fact] of fromTag) {
-      if (!byEnd.has(end)) byEnd.set(end, fact);
+      const prev = byEnd.get(end);
+      if (!prev || (pick === 'max' && fact.val > prev.val)) byEnd.set(end, fact);
     }
   }
   return byEnd;
@@ -145,7 +159,8 @@ export async function fetchSecAnnual(ticker: string): Promise<Map<number, SecAnn
   };
 
   for (const [field, tags] of Object.entries(FLOW_TAGS)) {
-    assign(field as keyof RawAnnual, annualValues(facts, tags!, 'flow'));
+    // Manche Firmen melden unter "Revenues" nur einen Teilbetrag; der Gesamtumsatz ist der größte Wert
+    assign(field as keyof RawAnnual, annualValues(facts, tags!, 'flow', field === 'revenue' ? 'max' : 'first'));
   }
   for (const [field, tags] of Object.entries(INSTANT_TAGS)) {
     assign(field as keyof RawAnnual, annualValues(facts, tags!, 'instant'));
@@ -166,6 +181,13 @@ export async function fetchSecAnnual(ticker: string): Promise<Map<number, SecAnn
     const longTerm = debtTotal.get(end)?.val ??
       (debtNoncurrent.has(end) ? debtNoncurrent.get(end)!.val + (debtCurrent.get(end)?.val ?? 0) : undefined);
     if (longTerm != null) row.totalDebt = longTerm + (debtShort.get(end)?.val ?? 0);
+
+    // Manche Berichte nennen die Aktienzahl versehentlich in Tausend (Lennar 2009–2011);
+    // Gewinn / EPS zeigt die richtige Größenordnung
+    if (row.shares && row.netIncome && row.eps && Math.abs(row.eps) >= 0.05) {
+      const ratio = Math.abs(row.netIncome / row.eps) / row.shares;
+      if (ratio > 500 && ratio < 2000) row.shares *= 1000;
+    }
   }
 
   return byYear;

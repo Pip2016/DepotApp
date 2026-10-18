@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { usePortfolio } from '@/hooks/usePortfolio';
-import { useMultipleStockQuotes } from '@/hooks/useStockData';
+import { usePortfolioQuotes } from '@/hooks/usePortfolioQuotes';
 import { PortfolioSummary } from '@/components/portfolio/PortfolioSummary';
 import { PositionList } from '@/components/portfolio/PositionList';
 import { AddPositionDialog } from '@/components/portfolio/AddPositionDialog';
+import { CorporateActionsPanel } from '@/components/portfolio/CorporateActionsPanel';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { formatCurrency } from '@/lib/formatters/currency';
 import { formatPercent } from '@/lib/formatters/number';
@@ -24,12 +25,7 @@ export default function PortfolioPage() {
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const symbols = useMemo(
-    () => portfolio.positions.map((p) => p.symbol),
-    [portfolio.positions]
-  );
-
-  const { quotes, isLoading } = useMultipleStockQuotes(symbols);
+  const { quotes, isLoading } = usePortfolioQuotes(portfolio.positions);
 
   const sortedPositions = useMemo(() => {
     return [...portfolio.positions].sort((a, b) => {
@@ -108,6 +104,12 @@ export default function PortfolioPage() {
 
       {/* Summary */}
       <PortfolioSummary positions={portfolio.positions} quotes={quotes} />
+
+      <CorporateActionsPanel
+        positions={portfolio.positions}
+        updatePosition={updatePosition}
+        addPosition={addPosition}
+      />
 
       {/* Table View */}
       <div className="card-shadow overflow-hidden rounded-xl border border-border bg-card">
