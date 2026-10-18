@@ -181,6 +181,13 @@ export async function fetchSecAnnual(ticker: string): Promise<Map<number, SecAnn
     const longTerm = debtTotal.get(end)?.val ??
       (debtNoncurrent.has(end) ? debtNoncurrent.get(end)!.val + (debtCurrent.get(end)?.val ?? 0) : undefined);
     if (longTerm != null) row.totalDebt = longTerm + (debtShort.get(end)?.val ?? 0);
+
+    // Manche Berichte nennen die Aktienzahl versehentlich in Tausend (Lennar 2009–2011);
+    // Gewinn / EPS zeigt die richtige Größenordnung
+    if (row.shares && row.netIncome && row.eps && Math.abs(row.eps) >= 0.05) {
+      const ratio = Math.abs(row.netIncome / row.eps) / row.shares;
+      if (ratio > 500 && ratio < 2000) row.shares *= 1000;
+    }
   }
 
   return byYear;
