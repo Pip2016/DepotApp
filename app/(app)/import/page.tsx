@@ -13,6 +13,7 @@ export default function ImportPage() {
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [importComplete, setImportComplete] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+  const [isResolving, setIsResolving] = useState(false);
 
   const handleFileLoaded = useCallback((content: string, _filename: string) => {
     const result = parseGenericCsv(content);
@@ -20,12 +21,25 @@ export default function ImportPage() {
     setImportComplete(false);
   }, []);
 
-  const handleConfirm = useCallback((positions: ParsedPosition[]) => {
+  const handleConfirm = useCallback(async (positions: ParsedPosition[]) => {
     if (positions.length === 0) return;
+    setIsResolving(true);
 
-    // Map parsed positions to portfolio positions
-    const mapped = positions.map((p) => ({
-      symbol: p.wkn || p.isin || p.name.substring(0, 10).toUpperCase(),
+    // Ohne Yahoo-Kürzel gibt es keinen Live-Kurs; ISIN zuerst, sonst der Name
+    const symbols = await Promise.all(
+      positions.map(async (p) => {
+        for (const q of [p.isin && `isin=${encodeURIComponent(p.isin)}`, p.name && `q=${encodeURIComponent(p.name)}`]) {
+          if (!q) continue;
+          const res = await fetch(`/api/stocks/resolve?${q}`).catch(() => null);
+          const data = res?.ok ? await res.json() : null;
+          if (data?.symbol) return data.symbol as string;
+        }
+        return null;
+      })
+    );
+
+    const mapped = positions.map((p, i) => ({
+      symbol: symbols[i] || p.wkn || p.isin || p.name.substring(0, 10).toUpperCase(),
       isin: p.isin,
       wkn: p.wkn,
       name: p.name,
@@ -39,6 +53,7 @@ export default function ImportPage() {
     importPositions(mapped);
     setImportedCount(positions.length);
     setImportComplete(true);
+    setIsResolving(false);
   }, [importPositions]);
 
   const handleCancel = useCallback(() => {
@@ -93,6 +108,8 @@ export default function ImportPage() {
             </a>
           </div>
         </div>
+      ) : isResolving ? (
+        <p className="text-sm text-muted-foreground">Ordne Wertpapiere ihren Börsenkürzeln zu …</p>
       ) : hasValidParseResult ? (
         /* CSV Preview with mapping editor */
         <CsvPreview
