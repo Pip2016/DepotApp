@@ -20,13 +20,22 @@ const positive = (x?: number) => (x != null && x > 0 ? x : undefined);
 // US-Ticker bei Yahoo haben keinen Börsen-Suffix (KO, BRK-B); SAP.DE, ALV.DE usw. schon
 const isUsTicker = (symbol: string) => !symbol.includes('.');
 
-// Kurswährung an Berichtswährung anpassen (London notiert in Pence)
-function priceInCurrency(prices: PriceHistory, month: string, currency: string): number | undefined {
-  const close = prices.monthlyClose.get(month);
-  if (close == null) return undefined;
-  if (prices.currency === currency) return close;
-  if (prices.currency === 'GBp' && currency === 'GBP') return close / 100;
-  return undefined;
+// London notiert in Pence
+const quoteCurrency = (prices: PriceHistory) => (prices.currency === 'GBp' ? 'GBP' : prices.currency);
+
+// Kurs in Berichtswährung; fx: Monatskurse Berichtswährung je Kurswährung (Novartis CHF -> USD)
+function priceInCurrency(
+  prices: PriceHistory,
+  month: string,
+  currency: string,
+  fx: Map<string, number> | null
+): number | undefined {
+  const raw = prices.monthlyClose.get(month);
+  if (raw == null) return undefined;
+  const close = prices.currency === 'GBp' ? raw / 100 : raw;
+  if (quoteCurrency(prices) === currency) return close;
+  const rate = fx?.get(month);
+  return rate != null ? close * rate : undefined;
 }
 
 // Monat, dessen Schlusskurs zum Geschäftsjahresende passt. 52/53-Wochen-Jahre enden oft in den
@@ -77,6 +86,30 @@ function merge(sec: Map<number, SecAnnual>, yahoo: Map<number, RawAnnual>, price
   return merged;
 }
 
+// Yahoo beschriftet einzelne Jahre mit falscher Währung (Tomra 2022 "NOK", Werte aber in EUR).
+// Passt der Umsatz ohne Umrechnung besser zum Nachbarjahr als mit, ist nur die Beschriftung falsch.
+async function fixCurrencyLabels(merged: Map<number, RawAnnual>, session: YahooSession) {
+  const counts = new Map<string, number>();
+  for (const r of merged.values()) counts.set(r.currency, (counts.get(r.currency) ?? 0) + 1);
+  if (counts.size < 2) return;
+  const main = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  const years = [...merged.keys()].sort((a, b) => a - b);
+
+  for (const year of years) {
+    const row = merged.get(year)!;
+    if (row.currency === main || !row.revenue) continue;
+    const near = years
+      .filter((y) => merged.get(y)!.currency === main && merged.get(y)!.revenue)
+      .sort((a, b) => Math.abs(a - year) - Math.abs(b - year))[0];
+    if (near == null) continue;
+    const fx = await fetchYahooPrices(`${row.currency}${main}=X`, session).catch(() => null);
+    const rate = fx?.monthlyClose.get(closingMonth(row.fiscalYearEnd));
+    if (rate == null) continue;
+    const ratio = row.revenue / merged.get(near)!.revenue!;
+    if (Math.abs(Math.log(ratio)) < Math.abs(Math.log(ratio * rate))) row.currency = main;
+  }
+}
+
 // symbol: Schlüssel in der Datenbank, fetchSymbol: Yahoo-Kürzel (meist gleich)
 export async function buildFundamentals(
   symbol: string,
@@ -90,17 +123,30 @@ export async function buildFundamentals(
   ]);
 
   const merged = merge(sec, yahoo, prices);
+  await fixCurrencyLabels(merged, session);
+
+  // Wechselkurse nur laden, wenn Kurs- und Berichtswährung auseinanderfallen
+  const fx = new Map<string, Map<string, number> | null>();
+  if (prices) {
+    for (const currency of new Set([...merged.values()].map((r) => r.currency))) {
+      if (currency === quoteCurrency(prices)) continue;
+      const pair = `${quoteCurrency(prices)}${currency}=X`;
+      fx.set(currency, await fetchYahooPrices(pair, session).then((p) => p.monthlyClose, () => null));
+    }
+  }
   const years = [...merged.keys()].sort((a, b) => a - b);
   const out: StockFundamentals[] = [];
 
   for (const [i, year] of years.entries()) {
     const r = merged.get(year)!;
     const prev = i > 0 && years[i - 1] === year - 1 ? merged.get(year - 1) : undefined;
+    // Yahoo liefert für manche Titel keine Aktienzahl (Novartis); Gewinn / EPS kommt dem am nächsten
+    if (r.shares == null && r.netIncome && r.eps && Math.abs(r.eps) >= 0.05) r.shares = Math.abs(r.netIncome / r.eps);
 
     const dps = r.dividendPerShare ?? div(r.dividendsPaid, r.shares);
     const bvps = div(r.totalEquity, r.shares);
     const cfps = div(r.operatingCashflow, r.shares);
-    const price = prices ? priceInCurrency(prices, closingMonth(r.fiscalYearEnd), r.currency) : undefined;
+    const price = prices ? priceInCurrency(prices, closingMonth(r.fiscalYearEnd), r.currency, fx.get(r.currency) ?? null) : undefined;
     const marketCap = price != null && r.shares ? price * r.shares : undefined;
     const enterpriseValue = marketCap != null && r.totalDebt != null ? marketCap + r.totalDebt - (r.cash ?? 0) : undefined;
     const earningsGrowthPct =
