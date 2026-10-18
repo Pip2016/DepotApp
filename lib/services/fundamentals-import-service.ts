@@ -29,6 +29,15 @@ function priceInCurrency(prices: PriceHistory, month: string, currency: string):
   return undefined;
 }
 
+// Monat, dessen Schlusskurs zum Geschäftsjahresende passt. 52/53-Wochen-Jahre enden oft in den
+// ersten Tagen eines Monats (SanDisk 3. Juli); dann liegt der Vormonatsschluss näher als der des Monats.
+function closingMonth(fiscalYearEnd: string): string {
+  const [y, m, d] = fiscalYearEnd.split('-').map(Number);
+  if (d > 7) return fiscalYearEnd.slice(0, 7);
+  const prev = new Date(Date.UTC(y, m - 2, 1));
+  return prev.toISOString().slice(0, 7);
+}
+
 // Splits nach dem Stichtag: Faktor, um alte Je-Aktie-Werte auf heutige Aktienzahl umzurechnen
 function splitFactorAfter(prices: PriceHistory | null, date: string): number {
   if (!prices) return 1;
@@ -91,7 +100,7 @@ export async function buildFundamentals(
     const dps = r.dividendPerShare ?? div(r.dividendsPaid, r.shares);
     const bvps = div(r.totalEquity, r.shares);
     const cfps = div(r.operatingCashflow, r.shares);
-    const price = prices ? priceInCurrency(prices, r.fiscalYearEnd.slice(0, 7), r.currency) : undefined;
+    const price = prices ? priceInCurrency(prices, closingMonth(r.fiscalYearEnd), r.currency) : undefined;
     const marketCap = price != null && r.shares ? price * r.shares : undefined;
     const enterpriseValue = marketCap != null && r.totalDebt != null ? marketCap + r.totalDebt - (r.cash ?? 0) : undefined;
     const earningsGrowthPct =
