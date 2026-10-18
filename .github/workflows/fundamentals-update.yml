@@ -1,0 +1,43 @@
+# .github/workflows/fundamentals-update.yml
+
+name: Fundamentals Update
+
+on:
+  # Täglich um 03:23 UTC: holt Titel ohne oder mit über 30 Tage alten Fundamentals
+  schedule:
+    - cron: '23 3 * * *'
+
+  # Manuell auslösbar, z. B. für die Erstbefüllung
+  workflow_dispatch:
+
+jobs:
+  update-fundamentals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Fundamentals Update
+        run: |
+          # Geht alle Titel in Abschnitten durch, bis nextOffset leer ist
+          offset=0
+          for i in $(seq 1 100); do
+            response=$(curl -s -w "\n%{http_code}" -X GET \
+              "${{ secrets.APP_URL }}/api/cron/fundamentals-update?offset=$offset" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+
+            echo "Abschnitt ab $offset: HTTP $http_code"
+            echo "$body"
+
+            if [ "$http_code" -ne 200 ]; then
+              echo "Error: API returned $http_code"
+              exit 1
+            fi
+
+            offset=$(echo "$body" | jq -r '.nextOffset // empty')
+            if [ -z "$offset" ]; then
+              echo "Alle Titel durchlaufen."
+              break
+            fi
+          done
