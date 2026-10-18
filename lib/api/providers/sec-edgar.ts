@@ -59,6 +59,11 @@ const DEBT_TAGS = {
   shortTerm: ['ShortTermBorrowings', 'CommercialPaper'],
 };
 
+// Ticker, deren SEC-Zuordnung auf eine neue Holding ohne Berichtshistorie zeigt
+const CIK_OVERRIDES: Record<string, number> = {
+  XOM: 34088, // Exxon Mobil Corp; der Ticker zeigt inzwischen auf ExxonMobil Holdings Corp
+};
+
 let tickerMap: Map<string, number> | null = null;
 
 function userAgent(): string | null {
@@ -77,6 +82,8 @@ async function secJson(url: string): Promise<unknown> {
 }
 
 async function cikFor(ticker: string): Promise<number | null> {
+  const override = CIK_OVERRIDES[ticker.toUpperCase()];
+  if (override) return override;
   if (!tickerMap) {
     const data = (await secJson('https://www.sec.gov/files/company_tickers.json')) as Record<
       string,
