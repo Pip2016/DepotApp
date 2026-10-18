@@ -30,7 +30,7 @@ export default function ImportPage() {
       wkn: p.wkn,
       name: p.name,
       quantity: p.quantity,
-      buyPrice: p.buyPrice ?? p.buyValue ? (p.buyValue! / p.quantity) : 0,
+      buyPrice: p.buyPrice ?? (p.buyValue != null ? p.buyValue / p.quantity : 0),
       buyDate: new Date().toISOString().split('T')[0],
       currency: (p.currency === 'EUR' || p.currency === 'USD' ? p.currency : 'EUR') as 'EUR' | 'USD',
       currentPrice: p.currentPrice,
