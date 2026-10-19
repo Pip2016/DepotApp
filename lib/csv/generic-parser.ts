@@ -178,6 +178,12 @@ function applyMapping(row: string[], mapping: ColumnMapping): ParsedPosition | n
     }
   }
 
+  // comdirect: "Kaufkurs in EUR" ist immer in Euro, "Währung" ist nur die Kurswährung des Börsenplatzes
+  const eurBasis = Object.values(mapping).some(
+    (c) => (c.mappedTo === 'buyPrice' || c.mappedTo === 'buyValue') && /in eur\b/i.test(c.header)
+  );
+  if (eurBasis) position.currency = 'EUR';
+
   // Validate required fields
   if (!position.name || position.quantity === undefined || position.quantity <= 0) {
     return null;

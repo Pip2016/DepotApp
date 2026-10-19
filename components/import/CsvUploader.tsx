@@ -22,18 +22,22 @@ export function CsvUploader({ onFileLoaded }: CsvUploaderProps) {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        if (content) {
-          setFileName(file.name);
-          onFileLoaded(content, file.name);
-        }
-      };
-      reader.onerror = () => {
-        setError('Fehler beim Lesen der Datei.');
-      };
-      reader.readAsText(file, 'utf-8');
+      // Banken (comdirect, Postbank) exportieren meist in Windows-1252 statt UTF-8
+      file
+        .arrayBuffer()
+        .then((buffer) => {
+          let content: string;
+          try {
+            content = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+          } catch {
+            content = new TextDecoder('windows-1252').decode(buffer);
+          }
+          if (content) {
+            setFileName(file.name);
+            onFileLoaded(content, file.name);
+          }
+        })
+        .catch(() => setError('Fehler beim Lesen der Datei.'));
     },
     [onFileLoaded]
   );

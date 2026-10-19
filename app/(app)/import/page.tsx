@@ -26,17 +26,20 @@ export default function ImportPage() {
     setIsResolving(true);
 
     // Ohne Yahoo-Kürzel gibt es keinen Live-Kurs; ISIN zuerst, sonst der Name
-    const symbols = await Promise.all(
-      positions.map(async (p) => {
-        for (const q of [p.isin && `isin=${encodeURIComponent(p.isin)}`, p.name && `q=${encodeURIComponent(p.name)}`]) {
-          if (!q) continue;
-          const res = await fetch(`/api/stocks/resolve?${q}`).catch(() => null);
-          const data = res?.ok ? await res.json() : null;
-          if (data?.symbol) return data.symbol as string;
-        }
-        return null;
-      })
-    );
+    const resolve = async (p: ParsedPosition) => {
+      for (const q of [p.isin && `isin=${encodeURIComponent(p.isin)}`, p.name && `q=${encodeURIComponent(p.name)}`]) {
+        if (!q) continue;
+        const res = await fetch(`/api/stocks/resolve?${q}`).catch(() => null);
+        const data = res?.ok ? await res.json() : null;
+        if (data?.symbol) return data.symbol as string;
+      }
+      return null;
+    };
+    // Nicht alle auf einmal, sonst drosselt Yahoo bei großen Depots
+    const symbols: Array<string | null> = [];
+    for (let i = 0; i < positions.length; i += 5) {
+      symbols.push(...(await Promise.all(positions.slice(i, i + 5).map(resolve))));
+    }
 
     const mapped = positions.map((p, i) => ({
       symbol: symbols[i] || p.wkn || p.isin || p.name.substring(0, 10).toUpperCase(),
