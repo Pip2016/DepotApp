@@ -7,6 +7,9 @@ import { PortfolioSummary } from '@/components/portfolio/PortfolioSummary';
 import { PositionList } from '@/components/portfolio/PositionList';
 import { AddPositionDialog } from '@/components/portfolio/AddPositionDialog';
 import { CorporateActionsPanel } from '@/components/portfolio/CorporateActionsPanel';
+import { TransactionsDialog } from '@/components/portfolio/TransactionsDialog';
+import { DepotStatus } from '@/components/portfolio/DepotStatus';
+import { computeHoldings } from '@/lib/portfolio/ledger';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { formatCurrency } from '@/lib/formatters/currency';
 import { formatPercent } from '@/lib/formatters/number';
@@ -19,9 +22,18 @@ type SortField = 'name' | 'value' | 'gain' | 'dayChange';
 type SortDirection = 'asc' | 'desc';
 
 export default function PortfolioPage() {
-  const { portfolio, addPosition, updatePosition, removePosition } = usePortfolio();
+  const depot = usePortfolio();
+  const { portfolio, holdings, entries, addPosition, removePosition, addEntries, deleteEntries, dismissAction } = depot;
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editPosition, setEditPosition] = useState<Position | undefined>();
+  const [txSymbol, setTxSymbol] = useState<string | null>(null);
+
+  // Bestand eines Titels am Vorabend eines Stichtags, für Kapitalmaßnahmen
+  const positionAt = (symbol: string, date: string): Position | null => {
+    const h = computeHoldings(entries.filter((e) => e.symbol === symbol && e.date < date)).holdings[0];
+    const current = portfolio.positions.find((p) => p.symbol === symbol);
+    if (!h || !current || h.quantity <= 1e-9) return null;
+    return { ...current, quantity: h.quantity, buyPrice: h.avgCost };
+  };
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -66,18 +78,8 @@ export default function PortfolioPage() {
     }
   };
 
-  const handleEdit = (position: Position) => {
-    setEditPosition(position);
-    setShowAddDialog(true);
-  };
-
-  const handleAdd = (position: Omit<Position, 'id'>) => {
-    if (editPosition) {
-      updatePosition(editPosition.id, position);
-      setEditPosition(undefined);
-    } else {
-      addPosition(position);
-    }
+  const handleRemove = (position: Position) => {
+    if (confirm(`${position.name} mit allen Buchungen löschen?`)) removePosition(position.symbol);
   };
 
   return (
@@ -91,10 +93,7 @@ export default function PortfolioPage() {
           </p>
         </div>
         <button
-          onClick={() => {
-            setEditPosition(undefined);
-            setShowAddDialog(true);
-          }}
+          onClick={() => setShowAddDialog(true)}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -102,13 +101,16 @@ export default function PortfolioPage() {
         </button>
       </div>
 
+      <DepotStatus depot={depot} />
+
       {/* Summary */}
       <PortfolioSummary positions={portfolio.positions} quotes={quotes} />
 
       <CorporateActionsPanel
         positions={portfolio.positions}
-        updatePosition={updatePosition}
-        addPosition={addPosition}
+        positionAt={positionAt}
+        onBook={addEntries}
+        onDismiss={dismissAction}
       />
 
       {/* Table View */}
@@ -242,13 +244,13 @@ export default function PortfolioPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <button
-                            onClick={() => handleEdit(position)}
+                            onClick={() => setTxSymbol(position.symbol)}
                             className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           >
-                            Bearbeiten
+                            Buchungen
                           </button>
                           <button
-                            onClick={() => removePosition(position.id)}
+                            onClick={() => handleRemove(position)}
                             className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             Löschen
@@ -264,15 +266,15 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Add/Edit Position Dialog */}
-      <AddPositionDialog
-        open={showAddDialog}
-        onOpenChange={(open) => {
-          setShowAddDialog(open);
-          if (!open) setEditPosition(undefined);
-        }}
-        onAdd={handleAdd}
-        editPosition={editPosition}
+      {/* Kauf einer neuen Position */}
+      <AddPositionDialog open={showAddDialog} onOpenChange={setShowAddDialog} onAdd={addPosition} />
+
+      <TransactionsDialog
+        holding={holdings.find((h) => h.symbol === txSymbol) ?? null}
+        entries={entries.filter((e) => e.symbol === txSymbol)}
+        onClose={() => setTxSymbol(null)}
+        onAdd={(entry) => addEntries([entry])}
+        onDelete={(id) => deleteEntries([id])}
       />
     </div>
   );

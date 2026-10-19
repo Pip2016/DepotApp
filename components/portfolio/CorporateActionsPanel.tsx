@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { GitBranch } from 'lucide-react';
-import { applyAction, type CorporateAction } from '@/lib/portfolio/corporate-actions';
+import { applyAction, actionToEntries, type CorporateAction } from '@/lib/portfolio/corporate-actions';
+import type { LedgerEntry } from '@/lib/portfolio/ledger';
 import { useCorporateActions } from '@/hooks/useCorporateActions';
 import { formatCurrency } from '@/lib/formatters/currency';
 import type { Position } from '@/types/portfolio';
 
 interface CorporateActionsPanelProps {
   positions: Position[];
-  updatePosition: (id: string, updates: Partial<Position>) => void;
-  addPosition: (position: Omit<Position, 'id'>) => void;
+  // Bestand am Vorabend der Maßnahme (später gekaufte Stücke nehmen nicht teil)
+  positionAt: (symbol: string, date: string) => Position | null;
+  onBook: (entries: Array<Omit<LedgerEntry, 'id'>>) => Promise<boolean>;
+  onDismiss: (actionId: string) => void;
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('de-DE');
@@ -36,21 +39,19 @@ function describe(action: CorporateAction, position: Position): string {
   return action.note ?? 'Kapitalmaßnahme';
 }
 
-export function CorporateActionsPanel({ positions, updatePosition, addPosition }: CorporateActionsPanelProps) {
+export function CorporateActionsPanel({ positions, positionAt, onBook, onDismiss }: CorporateActionsPanelProps) {
   const pending = useCorporateActions(positions);
   const [done, setDone] = useState<string[]>([]);
   const open = pending.filter((p) => !done.includes(`${p.position.id}:${p.action.id}`));
   if (open.length === 0) return null;
 
-  const book = (position: Position, action: CorporateAction) => {
-    const { parent, child } = applyAction(position, action);
-    updatePosition(position.id, parent);
-    if (child) addPosition(child);
-    setDone((d) => [...d, `${position.id}:${action.id}`]);
+  const book = async (position: Position, action: CorporateAction) => {
+    const held = positionAt(position.symbol, action.date) ?? position;
+    if (await onBook(actionToEntries(held, action))) setDone((d) => [...d, `${position.id}:${action.id}`]);
   };
 
   const dismiss = (position: Position, action: CorporateAction) => {
-    updatePosition(position.id, { appliedActions: [...(position.appliedActions ?? []), action.id] });
+    onDismiss(action.id);
     setDone((d) => [...d, `${position.id}:${action.id}`]);
   };
 
@@ -66,11 +67,12 @@ export function CorporateActionsPanel({ positions, updatePosition, addPosition }
         und Einstand die Maßnahme bereits enthalten.
       </p>
       <ul className="space-y-2">
-        {open.map(({ position, action }) => {
+        {open.map(({ position: current, action }) => {
+          const position = positionAt(current.symbol, action.date) ?? current;
           const preview = action.type === 'spinoff' ? applyAction(position, action) : null;
           return (
             <li
-              key={`${position.id}:${action.id}`}
+              key={`${current.id}:${action.id}`}
               className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="text-sm">

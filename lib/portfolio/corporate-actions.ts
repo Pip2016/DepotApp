@@ -3,6 +3,7 @@
 // die neue Aktie. Deshalb ergänzt eine Tabelle bekannter Abspaltungen Tochter und Verhältnis.
 
 import type { Position } from '@/types/portfolio';
+import type { LedgerEntry } from './ledger';
 
 export interface CorporateAction {
   // Stabil je Maßnahme, damit eine eingebuchte Maßnahme nicht erneut vorgeschlagen wird
@@ -174,4 +175,33 @@ export function applyAction(position: Position, action: CorporateAction): Action
 
   // Unbekannte Maßnahme: nur als erledigt markieren
   return { parent: { ...position, appliedActions: applied } };
+}
+
+// Maßnahme als Buchungen für das Depot (siehe lib/portfolio/ledger.ts)
+export function actionToEntries(position: Position, action: CorporateAction): Array<Omit<LedgerEntry, 'id'>> {
+  const base = { symbol: position.symbol, name: position.name, isin: position.isin, wkn: position.wkn, fees: 0, tax: 0, currency: position.currency, date: action.date, actionId: action.id };
+  if (action.type === 'split' && action.factor) {
+    return [{ ...base, type: 'split', quantity: 1, price: 0, ratio: action.factor, notes: 'Split/Zusammenlegung' }];
+  }
+  if (action.type === 'spinoff' && action.child && action.parentShare != null) {
+    const { child } = applyAction(position, action);
+    const entries: Array<Omit<LedgerEntry, 'id'>> = [
+      { ...base, type: 'spinoff', quantity: 1, price: 0, ratio: action.parentShare, notes: `Abspaltung ${action.child.name}` },
+    ];
+    if (child) {
+      entries.push({
+        ...base,
+        type: 'transfer',
+        symbol: child.symbol,
+        name: child.name,
+        isin: child.isin,
+        wkn: undefined,
+        quantity: child.quantity,
+        price: child.buyPrice,
+        notes: `Aus Abspaltung von ${position.name}`,
+      });
+    }
+    return entries;
+  }
+  return [];
 }

@@ -50,10 +50,14 @@ export default function ImportPage() {
       currentPrice: p.currentPrice,
     }));
 
-    importPositions(mapped);
+    const ok = await importPositions(mapped);
+    setIsResolving(false);
+    if (!ok) {
+      alert('Import fehlgeschlagen. Details stehen auf der Portfolio-Seite.');
+      return;
+    }
     setImportedCount(positions.length);
     setImportComplete(true);
-    setIsResolving(false);
   }, [importPositions]);
 
   const handleCancel = useCallback(() => {

@@ -46,6 +46,7 @@ export interface Database {
           name: string;
           description: string | null;
           is_default: boolean;
+          dismissed_actions: string[];
           created_at: string;
           updated_at: string;
         };
@@ -55,6 +56,7 @@ export interface Database {
           name: string;
           description?: string | null;
           is_default?: boolean;
+          dismissed_actions?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -64,6 +66,7 @@ export interface Database {
           name?: string;
           description?: string | null;
           is_default?: boolean;
+          dismissed_actions?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -129,7 +132,7 @@ export interface Database {
           id: string;
           portfolio_id: string;
           position_id: string | null;
-          type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer';
+          type: 'buy' | 'sell' | 'dividend' | 'split' | 'spinoff' | 'transfer';
           symbol: string;
           quantity: number;
           price: number;
@@ -139,12 +142,18 @@ export interface Database {
           executed_at: string;
           notes: string | null;
           created_at: string;
+          name: string | null;
+          isin: string | null;
+          wkn: string | null;
+          tax: number;
+          ratio: number | null;
+          action_id: string | null;
         };
         Insert: {
           id?: string;
           portfolio_id: string;
           position_id?: string | null;
-          type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer';
+          type: 'buy' | 'sell' | 'dividend' | 'split' | 'spinoff' | 'transfer';
           symbol: string;
           quantity: number;
           price: number;
@@ -154,12 +163,18 @@ export interface Database {
           executed_at: string;
           notes?: string | null;
           created_at?: string;
+          name?: string | null;
+          isin?: string | null;
+          wkn?: string | null;
+          tax?: number;
+          ratio?: number | null;
+          action_id?: string | null;
         };
         Update: {
           id?: string;
           portfolio_id?: string;
           position_id?: string | null;
-          type?: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer';
+          type?: 'buy' | 'sell' | 'dividend' | 'split' | 'spinoff' | 'transfer';
           symbol?: string;
           quantity?: number;
           price?: number;
@@ -169,6 +184,12 @@ export interface Database {
           executed_at?: string;
           notes?: string | null;
           created_at?: string;
+          name?: string | null;
+          isin?: string | null;
+          wkn?: string | null;
+          tax?: number;
+          ratio?: number | null;
+          action_id?: string | null;
         };
         Relationships: [
           {
@@ -701,7 +722,7 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      activity_type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer';
+      activity_type: 'buy' | 'sell' | 'dividend' | 'split' | 'spinoff' | 'transfer';
     };
     CompositeTypes: {
       [_ in never]: never;
